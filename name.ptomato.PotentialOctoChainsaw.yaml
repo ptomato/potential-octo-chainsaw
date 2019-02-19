@@ -1,0 +1,67 @@
+---
+app-id: name.ptomato.PotentialOctoChainsaw
+runtime: org.gnome.Platform
+runtime-version: '3.30'
+sdk: org.gnome.Sdk
+command: cog.js
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --allow=devel
+  - --filesystem=host
+  - --env=PKG_CONFIG_PATH=/app/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+modules:
+  - name: aws-sdk-cpp
+    # FIXME: This is the last 1.5 version. 1.7 has more external dependencies
+    # such as aws-c-common, etc. See https://github.com/aws/aws-sdk-cpp
+    # 1.6 seems to take 15 seconds to start up the client, I haven't figured out
+    # what we need to do differently since I originally wrote this with 1.5.
+    config-opts:
+      - -DBUILD_ONLY=cognito-idp
+      - -DMINIMIZE_SIZE=ON  # unity build, symbol stripping
+      #- -DCMAKE_INSTALL_LIBDIR=lib  # workaround https://github.com/aws/aws-sdk-cpp/issues/428
+    builddir: true
+    buildsystem: cmake-ninja
+    sources:
+      - type: git
+        url: https://github.com/aws/aws-sdk-cpp
+        branch: '1.5.25'
+        commit: 15dba4b2437c3964185967a661183498cbead6cb
+  - name: jasmine-gjs
+    sources:
+      - type: git
+        url: https://github.com/ptomato/jasmine-gjs
+  - name: libyaml
+    sources:
+      - type: archive
+        url: https://github.com/yaml/libyaml/archive/0.1.7.tar.gz
+        sha256: e1884d0fa1eec8cf869ac6bebbf25391e81956aa2970267f974a9fa5e0b968e2
+  - name: python3-pyyaml
+    buildsystem: simple
+    no-autogen: true
+    build-commands:
+      - python3 ./setup.py build
+      - python3 ./setup.py install --prefix=/app --skip-build --optimize=1
+    build-options:
+      env:
+        PYTHON: /usr/bin/python3
+    sources:
+      - type: archive
+        url: http://pyyaml.org/download/pyyaml/PyYAML-3.12.tar.gz
+        sha256: 592766c6303207a20efc445587778322d7f73b161bd994f227adaa341ba212ab
+  - name: libcog
+    buildsystem: meson
+    build-commands: [meson test -v]
+    config-opts:
+      - --buildtype=debug
+      - -Ddocumentation=true
+    sources:
+      - type: git
+        url: https://github.com/endlessm/libcog
+  - name: testapp
+    buildsystem: meson
+    sources:
+      - type: dir
+        path: .
